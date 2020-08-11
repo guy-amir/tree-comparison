@@ -40,6 +40,13 @@ def plot_contours(ax, clf, xx, yy, **params):
     out = ax.contourf(xx, yy, Z, **params)
     return out
 
+def generate_circle(samples=1000,dim=2):
+    X = np.random.rand(samples,dim)
+    Y = np.zeros(samples)
+    Y[(X[:,0]-0.5)**2+(X[:,1]-0.5)**2<0.16]=1
+
+    return X,Y
+
 def generate_triangle(samples=1000,dim=2):
     X = np.random.rand(samples,dim)
     Y1 = np.zeros(samples)
@@ -48,3 +55,29 @@ def generate_triangle(samples=1000,dim=2):
     Y2[X[:,0]>1-X[:,1]]=1
     Y = Y1*Y2
     return X,Y
+
+def generate_angle(samples=1000,dim=2):
+    X = np.random.rand(samples,dim)
+    Y1 = np.zeros(samples)
+    Y2 = np.zeros(samples)
+    Y1[X[:,0]<X[:,1]]=1
+    # Y2[X[:,0]>1-X[:,1]]=1
+    Y = Y1#*Y2
+    return X,Y
+
+def plot_2d_function(ax, a, b, c, xx, yy, **params):
+    """Plot the decision boundaries for a classifier.
+
+    Parameters
+    ----------
+    ax: matplotlib axes object
+    clf: a classifier
+    xx: meshgrid ndarray
+    yy: meshgrid ndarray
+    params: dictionary of params to pass to contourf, optional
+    """
+    Z = a*xx.ravel()+b*yy.ravel()+c
+    Z = 1/(1 + np.exp(-Z))
+    Z = Z.reshape(xx.shape)
+    out = ax.contourf(xx, yy, Z, **params)
+    return out
