@@ -37,12 +37,12 @@ class parameters():
         self.use_tree = True
         self.use_prenet = False
         self.classification = True
-        self.use_pi = False
+        self.use_pi = True
 
         self.n_trees = 1
 
         #Tree parameters:
-        self.tree_depth = 2
+        self.tree_depth = 4
         self.n_leaf = 2**self.tree_depth
 
 
@@ -56,7 +56,7 @@ class parameters():
         
 
         #Training parameters:
-        self.epochs = 400
+        self.epochs = 200
         # self.batch_size = 64
         self.learning_rate = 0.03
         self.weight_decay=1e-4

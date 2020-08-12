@@ -113,7 +113,7 @@ class Forest(nn.Module):
             with torch.no_grad():
 
                 FLT_MIN = float(np.finfo(np.float32).eps)    
-                prob = torch.mm(mu, tree.pi)+FLT_MIN  # [batch_size,n_class]
+                prob = torch.mm(mu, tree.pi.float())+FLT_MIN  # [batch_size,n_class]
                 _target = yb_onehot.unsqueeze(1) # [batch_size,1,n_class]
                 _pi = tree.pi.unsqueeze(0) # [1,n_leaf,n_class]
                 _mu = mu.unsqueeze(2) # [batch_size,n_leaf,1]
@@ -206,7 +206,7 @@ class Tree(nn.Module):
             self.decision = nn.Sigmoid()
 
         if prms.use_pi: 
-            self.pi = torch.ones((self.prms.n_leaf, self.prms.n_classes)).double()/self.prms.n_classes
+            self.pi = torch.ones((self.prms.n_leaf, self.prms.n_classes)).float()/self.prms.n_classes
             self.pi_counter = self.pi.data.new(self.prms.n_leaf, self.prms.n_classes).fill_(.0)
             if torch.cuda.is_available():
                 self.pi = self.pi.cuda()

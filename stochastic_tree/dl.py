@@ -125,14 +125,14 @@ def cifar_dl(prms):
 ##################################################################################################
 
 
-def generate_circle(samples=1000,dim=2):
+def generate_circle(samples=2000,dim=2):
     X = np.random.rand(samples,dim)
     Y = np.zeros(samples)
     Y[(X[:,0]-0.5)**2+(X[:,1]-0.5)**2<0.16]=1
 
     return X,Y
 
-def circle_dl(prms,dataset_length = 1600):
+def circle_dl(prms):
     
     init_dataset = circleDataset(prms)
     params = {'batch_size': prms.train_bs,
