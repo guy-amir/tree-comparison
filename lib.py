@@ -43,7 +43,7 @@ def plot_contours(ax, clf, xx, yy, **params):
 def generate_circle(samples=1000,dim=2):
     X = np.random.rand(samples,dim)
     Y = np.zeros(samples)
-    Y[(X[:,0]-0.5)**2+(X[:,1]-0.5)**2<0.16]=1
+    Y[(2*X[:,0]-0.5)**2+(X[:,1]-0.5)**2<0.16]=1
 
     return X,Y
 

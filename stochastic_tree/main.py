@@ -31,7 +31,7 @@ def evaluate_network(prms):
 
 net = evaluate_network(prms)
 
-X,Y = lib.generate_circle(samples = 50)
+X,Y = lib.generate_circle(samples = 2000)
 
 fig, sub = plt.subplots(1,1)
 plt.subplots_adjust(wspace=0.5, hspace=0.5)
@@ -53,3 +53,4 @@ ax.set_yticks(())
 # ax.set_title(title)
 
 plt.show()
+plt.savefig('./figs/circle_td2_e400_acc78.5_small_pi.png')
