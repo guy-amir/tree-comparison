@@ -27,7 +27,7 @@ class parameters():
             self.feature_length = 2
             self.n_classes = 2
 
-        self.n_samples = 2000
+        self.n_samples = 200
 
 
         #NN parameters:
@@ -42,7 +42,7 @@ class parameters():
         self.n_trees = 1
 
         #Tree parameters:
-        self.tree_depth = 4
+        self.tree_depth = 6
         self.n_leaf = 2**self.tree_depth
 
 
@@ -56,7 +56,7 @@ class parameters():
         
 
         #Training parameters:
-        self.epochs = 1000
+        self.epochs = 500
         # self.batch_size = 64
         self.learning_rate = 0.03
         self.weight_decay=1e-4

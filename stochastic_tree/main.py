@@ -31,7 +31,7 @@ def evaluate_network(prms):
 
 net = evaluate_network(prms)
 
-X,Y = lib.generate_circle(samples = 2000)
+X,Y = lib.generate_circle(samples = 200)
 
 fig, sub = plt.subplots(1,1)
 plt.subplots_adjust(wspace=0.5, hspace=0.5)
