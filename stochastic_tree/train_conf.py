@@ -121,6 +121,7 @@ class Trainer():
 
         for epoch in range(prms.epochs):  # loop over the dataset multiple times
 
+
             self.net.train(True)
             #add if for tree:
             # print(f'epoch {epoch}')
@@ -131,6 +132,7 @@ class Trainer():
             running_loss = 0.0
             long_running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
+
                 # get the x; data is a list of [x, y]
                 xb, yb = data[0].to(prms.device), data[1].to(prms.device)
 
@@ -179,7 +181,7 @@ class Trainer():
                         tree.pi_counter = nn.functional.softmax(tree.pi_counter, dim=1).data #GG??
                         tree.pi = nn.Parameter(tree.pi_counter, requires_grad = False)
                         tree.pi_counter = tree.pi.data.new(self.prms.n_leaf, self.prms.n_classes).fill_(.0)
-                        print(f"pi: {tree.pi}")
+                        # print(f"pi: {tree.pi}")
 
                 else:
                     wav_acc = []

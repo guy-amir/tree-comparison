@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 import numpy as np
 from prenets import cifar_net
+from svm_tree import svm_tree_init
 
 class Forest(nn.Module):
     def __init__(self, prms):
@@ -50,8 +51,11 @@ class Forest(nn.Module):
 
             if self.prms.use_pi:
                 if self.training:
+                    # if self.prms.binary_pi:
+                    #     print('hi')
+                    # else:
                     self.update_label_distribution_in_tree(tree, mu_leaves, yb_onehot)
-                pred = torch.mm(mu_leaves,tree.pi)
+                pred = torch.mm(mu_leaves,tree.pi.double())
                 self.predictions.append(pred.unsqueeze(1))
             else:
                 if self.training:
@@ -113,12 +117,11 @@ class Forest(nn.Module):
             with torch.no_grad():
 
                 FLT_MIN = float(np.finfo(np.float32).eps)    
-                prob = torch.mm(mu, tree.pi.float())+FLT_MIN  # [batch_size,n_class]
+                prob = torch.mm(mu, tree.pi.double())+FLT_MIN  # [batch_size,n_class]
                 _target = yb_onehot.unsqueeze(1) # [batch_size,1,n_class]
                 _pi = tree.pi.unsqueeze(0) # [1,n_leaf,n_class]
                 _mu = mu.unsqueeze(2) # [batch_size,n_leaf,1]
                 _prob = torch.clamp(prob.unsqueeze(1),min=1e-6,max=1.) # [batch_size,1,n_class]
-    
                 _new_pi = torch.mul(torch.mul(_target,_pi),_mu)/_prob # [batch_size,n_leaf,n_class]
                 tree.pi_counter += torch.sum(_new_pi,dim=0).cuda()
             # new_pi = F.softmax(new_pi, dim=1).data #GG??
@@ -190,6 +193,17 @@ class Forest(nn.Module):
             return self.pred_list
         else:
             return self.prediction
+    
+    def svm_init(self,dataset):
+        X = dataset[:][0].numpy()
+        y = dataset[:][1].numpy()
+        self.svt = svm_tree_init(X,y,depth=self.prms.tree_depth)
+
+        weights = self.svt.output_weights()
+
+        for tree in self.trees:
+            #add some randomization factor
+            tree.svm_init(weights)
 
 
 class Tree(nn.Module):
@@ -221,7 +235,10 @@ class Tree(nn.Module):
             self.feature_mask = nn.parameter.Parameter(torch.from_numpy(self.feature_mask).type(torch.FloatTensor), requires_grad=False)
 
         if prms.logistic_regression_per_node == True:
-            self.fc = nn.ModuleList([nn.Linear(prms.n_leaf, 1).float() for i in range(self.n_nodes)])
+            if self.prms.feature_map == True:
+                self.fc = nn.ModuleList([nn.Linear(prms.n_leaf, 1).float() for i in range(self.n_nodes)])
+            else:
+                self.fc = nn.ModuleList([nn.Linear(prms.feature_length, 1).float() for i in range(self.n_nodes)])
             
 
 
@@ -233,7 +250,7 @@ class Tree(nn.Module):
         else:
             feats = x
 
-        self.d = [self.decision(node(feats)) for node in self.fc]
+        self.d = [self.decision(node(feats)).double() for node in self.fc]
         
         self.d = torch.stack(self.d)
 
@@ -260,6 +277,13 @@ class Tree(nn.Module):
         big_mu = big_mu.view(x.size(0), -1)    
         # self.mu_cache.append(big_mu)  
         return big_mu #-> [batch size,n_leaf]
+
+    def svm_init(self,weights):
+
+        for i in range(1,len(self.fc)):
+            self.fc[i].weight.data = torch.tensor([weights[i-1][0:2]]).float().cuda()
+            self.fc[i].bias.data = torch.tensor([weights[i-1][2]]).float().cuda()
+
 
     
 

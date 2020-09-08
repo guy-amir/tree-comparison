@@ -27,7 +27,7 @@ class parameters():
             self.feature_length = 2
             self.n_classes = 2
 
-        self.n_samples = 200
+        self.n_samples = 20000
 
 
         #NN parameters:
@@ -38,11 +38,12 @@ class parameters():
         self.use_prenet = False
         self.classification = True
         self.use_pi = False
+        self.binary_pi = True
 
         self.n_trees = 1
 
         #Tree parameters:
-        self.tree_depth = 6
+        self.tree_depth = 5
         self.n_leaf = 2**self.tree_depth
 
 
@@ -50,15 +51,15 @@ class parameters():
         self.single_level_training = True
         self.features4tree = 1
         self.logistic_regression_per_node = True
-        self.feature_map = True
+        self.feature_map = False
         self.activation = 'sigmoid'
         self.save_flag = False
         
 
         #Training parameters:
-        self.epochs = 500
+        self.epochs = 10
         # self.batch_size = 64
-        self.learning_rate = 0.03
+        self.learning_rate = 0.003
         self.weight_decay=1e-4
         self.momentum=0.9
         self.optimizer = 'Adam'
