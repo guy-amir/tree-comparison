@@ -65,18 +65,18 @@ def generate_angle(samples=1000,dim=2):
     Y = Y1#*Y2
     return X,Y
 
-def plot_2d_function(ax, a, b, c, xx, yy, **params):
+def plot_2d_function(ax, w, xx, yy, **params):
     """Plot the decision boundaries for a classifier.
 
     Parameters
     ----------
     ax: matplotlib axes object
-    clf: a classifier
+    w: weights+bias
     xx: meshgrid ndarray
     yy: meshgrid ndarray
     params: dictionary of params to pass to contourf, optional
     """
-    Z = a*xx.ravel()+b*yy.ravel()+c
+    Z = w[0]*xx.ravel()+w[1]*yy.ravel()+w[2]
     Z = 1/(1 + np.exp(-Z))
     Z = Z.reshape(xx.shape)
     out = ax.contourf(xx, yy, Z, **params)

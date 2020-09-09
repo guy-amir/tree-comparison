@@ -7,6 +7,7 @@ import pandas as pd
 import lib
 import matplotlib.pyplot as plt
 import svm_tree
+import torch
 
 #load default parameters (including device)
 prms = parameters()
@@ -41,11 +42,11 @@ def evaluate_network(prms,svm_init=True):
 
     #run\fit\whatever
     trainer = Trainer(prms,net)
-    loss_list,val_acc_list,train_acc_list,wav_acc_list,cutoff_list,smooth_list = trainer.fit(trainloader,testloader)
+    loss_list,val_acc_list,train_acc_list,weights_list,wav_acc_list,cutoff_list,smooth_list = trainer.fit(trainloader,testloader)
     
-    return net,loss_list,val_acc_list,train_acc_list
+    return net,loss_list,val_acc_list,train_acc_list,weights_list
 
-def plot_results():
+def plot_results(image_name):
     fig, sub = plt.subplots(1,1)
     plt.subplots_adjust(wspace=0.5, hspace=0.5)
 
@@ -64,26 +65,35 @@ def plot_results():
     ax.set_xticks(())
     ax.set_yticks(())
     # ax.set_title(title)
+    plt.savefig(image_name)
 
-    plt.show()
-    # plt.savefig('./figs/circle_td2_e400_acc78.5_small_pi.png')
 print('part 1')
-net,loss_list,val_acc_list,train_acc_list = evaluate_network(prms,svm_init=False)
-df2 = pd.DataFrame(list(zip(loss_list,val_acc_list,train_acc_list)), 
+net,loss_list,val_acc_list,train_acc_list,weights_list = evaluate_network(prms,svm_init=False)
+df1 = pd.DataFrame(list(zip(loss_list,val_acc_list,train_acc_list)), 
                columns =['loss_list','val_acc_list','train_acc_list']) 
+# df1_weights = pd.DataFrame(weights_list)
+# df1_weights.to_csv(f'weights_a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_false.csv')
 
-df2.to_csv(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_false.csv')
-plot_results()
+torch.save(weights_list, f'weights_a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_false.pt')
+
+df1.to_csv(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_false.csv')
+plot_results(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_false.png')
+
 
 print('part 2')
-net,loss_list,val_acc_list,train_acc_list = evaluate_network(prms,svm_init=True)
+net,loss_list,val_acc_list,train_acc_list,weights_list = evaluate_network(prms,svm_init=True)
 
-df1 = pd.DataFrame(list(zip(loss_list,val_acc_list,train_acc_list)), 
+df2 = pd.DataFrame(list(zip(loss_list,val_acc_list,train_acc_list)), 
                columns =['loss_list','val_acc_list','train_acc_list']) 
 svt = svm_tree.svt(X_train,y_train,prms.tree_depth)
 svt_acc = net.svt.accuracy(X,y)
-df1.to_csv(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_true{svt_acc}.csv')
-plot_results()
+df2.to_csv(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_true{svt_acc}.csv')
+# df2_weights = pd.DataFrame(weights_list)
+# df2_weights.to_csv(f'weights_a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}
+
+torch.save(weights_list, f'weights_a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_true{svt_acc}.pt')
+
+plot_results(f'a{val_acc_list[-1]}e{prms.epochs}s{prms.n_samples}d{prms.tree_depth}svm_init_true{svt_acc}.png')
 
 
 

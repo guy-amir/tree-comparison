@@ -118,6 +118,7 @@ class Trainer():
         self.wav_acc_list = []
         self.smooth_list = []
         self.cutoff_list = []
+        self.weights_list = []
 
         for epoch in range(prms.epochs):  # loop over the dataset multiple times
 
@@ -192,7 +193,12 @@ class Trainer():
                         for i in range(1,6):
                             cutoff = int(i*prms.n_leaf/5) #arbitrary cutoff
                             wav_acc.append(self.wavelet_validation(testloader,cutoff))
-            
+
+            #convert weights to list:
+            w_list_raw = [p.tolist()[0] for p in list(self.net.parameters())]
+            w_list = [w_list_raw[2*i]+[w_list_raw[2*i+1]] for i in range(int(len(w_list_raw)/2))]
+            self.weights_list.append(w_list)
+
 
             self.loss_list.append(long_running_loss)
             val_acc = self.validation(testloader)
@@ -203,9 +209,10 @@ class Trainer():
             self.cutoff_list = [int(i*prms.n_leaf/5) for i in range(1,6)]
             if prms.check_smoothness == True:
                 self.smooth_list.append(smooth_layers)
-
             
+        #weights_list is a 3d tensor of trained weights of all epochs
+        #its shape is (number of epochs)x(number of nodes)x(number of weights+bias)
+        self.weights_list = torch.tensor(self.weights_list)
 
-        return self.loss_list,self.val_acc_list,self.train_acc_list,self.wav_acc_list,self.cutoff_list,self.smooth_list
-            
-            #this is where we append everything
+        return self.loss_list,self.val_acc_list,self.train_acc_list,self.weights_list,self.wav_acc_list,self.cutoff_list,self.smooth_list
+        

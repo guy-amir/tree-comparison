@@ -155,8 +155,11 @@ class circleDataset(Dataset):
         self.n_samples = prms.n_samples
         dim = 2 #prms.dim
 
-        # self.samples = torch.rand(self.n_samples,dim)
-        self.samples = torch.normal(0.5, 1.0, size=(self.n_samples,dim))
+        if prms.gaussian_generation:
+            self.samples = torch.normal(0.5, 1.0, size=(self.n_samples,dim))
+        else:
+            self.samples = torch.rand(self.n_samples,dim)
+        
         self.labels  = torch.zeros(self.n_samples)
         self.labels[(self.samples[:,0]-0.5)**2+(self.samples[:,1]-0.5)**2<0.16]=1
 

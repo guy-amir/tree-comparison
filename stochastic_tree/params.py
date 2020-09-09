@@ -3,10 +3,14 @@ import torch
 class parameters():
     def __init__(self):
 
+        #General parameters
+        self.archive_path = './archive'
         #Computational parameters:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
         #Dataset parameters:
+        self.gaussian_generation = False
         self.dataset = 'circle' #'cifar10' #"mnist" #'wine'
         self.data_path = '../data'
         self.train_bs = 256
@@ -43,7 +47,7 @@ class parameters():
         self.n_trees = 1
 
         #Tree parameters:
-        self.tree_depth = 5
+        self.tree_depth = 2
         self.n_leaf = 2**self.tree_depth
 
 
@@ -59,7 +63,7 @@ class parameters():
         #Training parameters:
         self.epochs = 10
         # self.batch_size = 64
-        self.learning_rate = 0.003
+        self.learning_rate = 0.03
         self.weight_decay=1e-4
         self.momentum=0.9
         self.optimizer = 'Adam'
