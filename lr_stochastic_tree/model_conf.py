@@ -1,0 +1,238 @@
+import torch.nn as nn
+import torch.nn.functional as F
+import torch
+import numpy as np
+from prenets import cifar_net
+from svm_tree import svm_tree_init
+
+class Forest(nn.Module):
+    def __init__(self, prms):
+        super(Forest, self).__init__()
+        self.trees = nn.ModuleList()
+        self.prms = prms
+        self.y_hat_avg= []
+        self.mu_list = []
+
+        #The neural network that feeds into the trees:
+        if prms.dataset == 'cifar10':
+            self.prenet = cifar_net(self.prms)
+        # elif prms.dataset == 'wine':
+
+
+        for _ in range(self.prms.n_trees):
+            tree = Tree(prms)
+            self.trees.append(tree)
+
+    def forward(self, xb,yb=None,layer=None, save_flag = False):
+
+        self.save_flag = save_flag
+        self.predictions = []
+
+        if self.training:
+            yb_onehot = self.vec2onehot(yb)
+
+        if self.prms.use_prenet:
+            xb = self.prenet(xb)
+        
+
+        if (self.prms.use_tree == False):
+            return xb
+
+
+        for tree in self.trees: 
+              
+            FLT_MIN = float(np.finfo(np.float32).eps)
+
+            mu = tree(xb)
+            mu += FLT_MIN
+
+            mu_midpoint = int(mu.size(1)/2)
+            mu_leaves = mu[:,mu_midpoint:]
+
+            if self.prms.use_pi:
+                if self.training:
+                    # if self.prms.binary_pi:
+                    #     print('hi')
+                    # else:
+                    self.update_label_distribution_in_tree(tree, mu_leaves, yb_onehot)
+                pred = torch.mm(mu_leaves,tree.pi.double())
+                self.predictions.append(pred.unsqueeze(1))
+                
+            elif self.prms.logistic_leaves:
+                #pred = torch.einsum('ij,ij->i', mu_leaves, tree.leaf_reg[:,:,0]).unsqueeze(1).cuda() #MULTIPLY LEAF_REG WITH MU_LEAVES TO GET A TENSOR OF SIZE (no. of samples)X(no. of leaves)
+                pred = torch.diag(torch.mm(mu_leaves, tree.leaf_reg[:,:,0].T))
+                pred = pred.unsqueeze(1)
+                pred = torch.cat((pred,1-pred),dim=1)
+                self.predictions.append(pred.unsqueeze(2)) 
+            else:
+                if self.training:
+                    self.predict(mu,yb_onehot)
+                else:
+                    self.predict(mu)
+            
+        ##GG add averaging of trees 
+        self.prediction = torch.cat(self.predictions, dim=2)
+        self.prediction = torch.sum(self.prediction, dim=2)/self.prms.n_trees
+
+        return self.prediction
+
+    def predict(self,mu,yb_onehot=None):
+
+        #find the nodes that are leaves:
+        mu_midpoint = int(mu.size(1)/2)
+
+        mu_leaves = mu[:,mu_midpoint:]
+
+        #create a normalizing factor for leaves:
+        N = mu.sum(0)
+        
+
+        if self.training:
+            if self.prms.classification:
+                self.y_hat = yb_onehot.t() @ mu.float()/N
+                y_hat_leaves = self.y_hat[:,mu_midpoint:]
+                self.y_hat_batch_avg.append(self.y_hat.unsqueeze(2))
+        ####################################################################
+        else: 
+            y_hat_val_avg = torch.cat(self.y_hat_avg, dim=2)
+            y_hat_val_avg = torch.sum(y_hat_val_avg, dim=2)/y_hat_val_avg.size(2)
+            y_hat_leaves = y_hat_val_avg[:,mu_midpoint:]
+        ####################################################################
+        pred = (mu_leaves @ y_hat_leaves.t())
+
+        if self.prms.save_flag:
+            self.mu_list.append(mu)
+            # self.y_hat_val_avg = y_hat_val_avg
+
+        self.predictions.append(pred.unsqueeze(1))
+    
+    def vec2onehot(self,yb):
+        yb_onehot = torch.zeros(yb.size(0), int(yb.max()+1))
+        yb = yb.view(-1,1).long()
+        if yb.is_cuda:
+            yb_onehot = yb_onehot.cuda()
+        yb_onehot.scatter_(1, yb, 1)
+        return yb_onehot
+
+    def update_label_distribution_in_tree(self,tree, mu, yb_onehot):
+            """
+            compute new mean vector based on a simple update rule inspired from traditional regression tree 
+            Args:
+                param feat_batch (Tensor): feature batch of size [batch_size, feature_length]
+                param target_batch (Tensor): target batch of size [batch_size, vector_length]
+            """
+            with torch.no_grad():
+
+                FLT_MIN = float(np.finfo(np.float32).eps)    
+                prob = torch.mm(mu, tree.pi.double())+FLT_MIN  # [batch_size,n_class]
+                _target = yb_onehot.unsqueeze(1) # [batch_size,1,n_class]
+                _pi = tree.pi.unsqueeze(0) # [1,n_leaf,n_class]
+                _mu = mu.unsqueeze(2) # [batch_size,n_leaf,1]
+                _prob = torch.clamp(prob.unsqueeze(1),min=1e-6,max=1.) # [batch_size,1,n_class]
+                _new_pi = torch.mul(torch.mul(_target,_pi),_mu)/_prob # [batch_size,n_leaf,n_class]
+                tree.pi_counter += torch.sum(_new_pi,dim=0).cuda()
+        
+    def svm_init(self,dataset):
+        X = dataset[:][0].numpy()
+        y = dataset[:][1].numpy()
+        self.svt = svm_tree_init(X,y,depth=self.prms.tree_depth)
+
+        weights = self.svt.output_weights()
+
+        for tree in self.trees:
+            #add some randomization factor
+            tree.svm_init(weights)
+
+class Tree(nn.Module):
+    def __init__(self,prms):
+        super(Tree, self).__init__()
+        self.depth = prms.tree_depth
+        self.n_nodes = prms.n_leaf
+        self.mu_cache = []
+        self.prms = prms
+
+        if prms.activation == 'relu':
+            self.decision = nn.ReLU()
+        elif prms.activation == 'sigmoid':
+            self.decision = nn.Sigmoid()
+
+        if prms.use_pi: 
+            self.pi = torch.ones((self.prms.n_leaf, self.prms.n_classes)).float()/self.prms.n_classes
+            self.pi_counter = self.pi.data.new(self.prms.n_leaf, self.prms.n_classes).fill_(.0)
+            if torch.cuda.is_available():
+                self.pi = self.pi.cuda()
+                self.pi_counter = self.pi_counter.cuda()
+
+        if prms.feature_map == True:
+            self.n_features = prms.feature_length
+            onehot = np.eye(prms.feature_length)
+            # randomly use some neurons in the feature layer to compute decision function
+            self.using_idx = np.random.choice(prms.feature_length, prms.n_leaf, replace=True)
+            self.feature_mask = onehot[self.using_idx].T
+            self.feature_mask = nn.parameter.Parameter(torch.from_numpy(self.feature_mask).type(torch.FloatTensor), requires_grad=False)
+
+        if prms.logistic_regression_per_node == True:
+            if self.prms.feature_map == True:
+                self.fc = nn.ModuleList([nn.Linear(prms.n_leaf, 1).float() for i in range(self.n_nodes)])
+            else:
+                if prms.logistic_leaves:
+                    self.fc = nn.ModuleList([nn.Linear(prms.feature_length, 1).float() for i in range(2*self.n_nodes)])
+                else:
+                    self.fc = nn.ModuleList([nn.Linear(prms.feature_length, 1).float() for i in range(self.n_nodes)])
+
+
+    def forward(self, x, save_flag = False):
+        if self.prms.feature_map == True:
+            if x.is_cuda and not self.feature_mask.is_cuda:
+                self.feature_mask = self.feature_mask.cuda()
+            feats = torch.mm(x.view(-1,self.feature_mask.size(0)).float(), self.feature_mask)
+        else:
+            feats = x
+
+        self.d = [self.decision(node(feats)).double() for node in self.fc]
+        
+        self.d = torch.stack(self.d)
+
+        decision = torch.cat((self.d,1-self.d),dim=2).permute(1,0,2)
+        
+        batch_size = x.size()[0]
+        mu = x.data.new(x.size(0),1,1).fill_(1.)
+        big_mu = x.data.new(x.size(0),2,1).fill_(1.)
+        begin_idx = 1
+        end_idx = 2
+        for n_layer in range(0, self.depth):
+            # mu stores the probability a sample is routed at certain node
+            # repeat it to be multiplied for left and right routing
+            mu = mu.repeat(1, 1, 2)
+            # the routing probability at n_layer
+            _decision = decision[:, begin_idx:end_idx, :] # -> [batch_size,2**n_layer,2]
+            mu = mu*_decision # -> [batch_size,2**n_layer,2]
+            begin_idx = end_idx
+            end_idx = begin_idx + 2 ** (n_layer+1)
+            # merge left and right nodes to the same layer
+            mu = mu.view(x.size(0), -1, 1)
+            big_mu = torch.cat((big_mu,mu),1)
+
+        if self.prms.logistic_leaves:
+            self.leaf_reg = decision[:, begin_idx:end_idx, :]
+
+        big_mu = big_mu.view(x.size(0), -1)    
+        # self.mu_cache.append(big_mu)  
+        return big_mu #-> [batch size,n_leaf]
+
+    def svm_init(self,weights):
+
+        for i in range(1,len(self.fc)):
+            self.fc[i].weight.data = torch.tensor([weights[i-1][0:2]]).float().cuda()
+            self.fc[i].bias.data = torch.tensor([weights[i-1][2]]).float().cuda()
+
+
+    
+
+def level2nodes(tree_level):
+    return 2**(tree_level+1)
+
+def level2node_delta(tree_level):
+    start = level2nodes(tree_level-1)
+    end = level2nodes(tree_level)
+    return [start,end]

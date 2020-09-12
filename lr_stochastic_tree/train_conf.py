@@ -184,6 +184,8 @@ class Trainer():
                         tree.pi_counter = tree.pi.data.new(self.prms.n_leaf, self.prms.n_classes).fill_(.0)
                         # print(f"pi: {tree.pi}")
 
+                elif prms.logistic_leaves:
+                    pass
                 else:
                     wav_acc = []
                     self.net.y_hat_batch_avg = torch.cat(self.net.y_hat_batch_avg, dim=2)
@@ -215,7 +217,7 @@ class Trainer():
             
         #weights_list is a 3d tensor of trained weights of all epochs
         #its shape is (number of epochs)x(number of nodes)x(number of weights+bias)
-        # self.weights_list = torch.tensor(self.weights_list)
+        self.weights_list = torch.tensor(self.weights_list)
 
         return self.loss_list,self.val_acc_list,self.train_acc_list,self.weights_list,self.wav_acc_list,self.cutoff_list,self.smooth_list
         

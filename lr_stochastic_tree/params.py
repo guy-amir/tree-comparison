@@ -5,8 +5,11 @@ class parameters():
 
         #General parameters
         self.archive_path = './archive'
+        self.save = True
+
         #Computational parameters:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
 
 
         #Dataset parameters:
@@ -42,7 +45,7 @@ class parameters():
         self.use_prenet = False
         self.classification = True
         self.use_pi = True
-        self.binary_pi = False
+        self.logistic_leaves = False
 
         self.n_trees = 1
 
@@ -61,7 +64,7 @@ class parameters():
         
 
         #Training parameters:
-        self.epochs = 10
+        self.epochs = 1
         # self.batch_size = 64
         self.learning_rate = 0.03
         self.weight_decay=1e-4
